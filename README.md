@@ -71,6 +71,9 @@ A lightweight Windows utility that monitors your clipboard for phone numbers and
 ### Settings
 - **Auto-open browser**: Toggle automatic WhatsApp Web opening
 - **Avoid duplicates**: Prevent opening the same number twice
+- **Numbers only (no extra text)**: Only detect standalone phone numbers
+  - ✅ When enabled: Processes `+1234567890` but ignores `Call me at +1234567890`
+  - ✅ When disabled: Processes both formats
 - **Check interval**: How often to check clipboard (default: 1 second)
 
 ### Config File
@@ -82,7 +85,8 @@ Settings are automatically saved to `config.json`:
   "monitor_enabled": true,
   "check_interval": 1.0,
   "avoid_duplicates": true,
-  "auto_open_browser": true
+  "auto_open_browser": true,
+  "numbers_only_mode": false
 }
 ```
 

@@ -66,7 +66,8 @@ class ClipboardWhatsAppSender:
             "monitor_enabled": True,
             "check_interval": 1.0,
             "avoid_duplicates": True,
-            "auto_open_browser": True
+            "auto_open_browser": True,
+            "numbers_only_mode": False
         }
         
         if os.path.exists(self.config_file):
@@ -102,6 +103,33 @@ class ClipboardWhatsAppSender:
                 return True
         
         return False
+    
+    def is_phone_number_only(self, text):
+        """Check if text contains ONLY a phone number (no extra text)"""
+        text = text.strip()
+        
+        # If the text is empty after stripping, it's not a valid phone number
+        if not text:
+            return False
+        
+        # Extract the phone number from the text
+        extracted_number = None
+        for pattern in self.phone_patterns:
+            match = re.search(pattern, text)
+            if match:
+                extracted_number = match.group()
+                break
+        
+        if not extracted_number:
+            return False
+        
+        # Clean both the original text and the extracted number for comparison
+        # Remove all non-alphanumeric characters except + for comparison
+        clean_text = re.sub(r'[^\w+]', '', text)
+        clean_number = re.sub(r'[^\w+]', '', extracted_number)
+        
+        # If the cleaned text equals the cleaned number, then it's only a phone number
+        return clean_text == clean_number
     
     def extract_phone_number(self, text):
         """Extract and clean phone number from text"""
@@ -190,8 +218,26 @@ class ClipboardWhatsAppSender:
                 if current_clipboard != self.last_clipboard and current_clipboard.strip():
                     self.last_clipboard = current_clipboard
                     
-                    # Check if it's a valid phone number
-                    if self.is_valid_phone_number(current_clipboard):
+                    # Check detection mode
+                    numbers_only_mode = self.config.get("numbers_only_mode", False)
+                    
+                    # Determine if we should process this clipboard content
+                    should_process = False
+                    
+                    if numbers_only_mode:
+                        # Only process if clipboard contains ONLY a phone number
+                        if self.is_phone_number_only(current_clipboard):
+                            should_process = True
+                        else:
+                            # Log that we're skipping due to extra text
+                            if self.is_valid_phone_number(current_clipboard):
+                                self.log_to_gui(f"⏭️ Skipping (contains extra text): {current_clipboard[:30]}...")
+                    else:
+                        # Process if clipboard contains any valid phone number
+                        if self.is_valid_phone_number(current_clipboard):
+                            should_process = True
+                    
+                    if should_process:
                         phone_number = self.extract_phone_number(current_clipboard)
                         
                         if phone_number:
@@ -210,6 +256,13 @@ class ClipboardWhatsAppSender:
                             self.log_to_gui(f"📞 Detected: {phone_number}")
                             
                             # Open WhatsApp
+                            message = self.config.get("default_message", "Hello!")
+                            if hasattr(self, 'message_var') and self.message_var:
+                                custom_message = self.message_var.get()
+                                if custom_message.strip():
+                                    message = custom_message.strip()
+                            
+                            self.open_whatsapp(phone_number, message)
                             message = self.config.get("default_message", "Hello!")
                             if hasattr(self, 'message_var') and self.message_var:
                                 custom_message = self.message_var.get()
@@ -323,6 +376,12 @@ class ClipboardWhatsAppSender:
                                       command=self.save_settings)
         avoid_dup_cb.grid(row=0, column=1, sticky=tk.W, padx=(20, 0))
         
+        self.numbers_only_var = tk.BooleanVar(value=self.config.get("numbers_only_mode", False))
+        numbers_only_cb = ttk.Checkbutton(settings_frame, text="Numbers only (no extra text)", 
+                                         variable=self.numbers_only_var,
+                                         command=self.save_settings)
+        numbers_only_cb.grid(row=1, column=0, sticky=tk.W, columnspan=2, pady=(5, 0))
+        
         # Log display
         log_frame = ttk.LabelFrame(main_frame, text="Activity Log", padding="10")
         log_frame.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=(0, 10))
@@ -339,7 +398,9 @@ class ClipboardWhatsAppSender:
             "1. Click 'Start Monitoring' to begin watching clipboard\n"
             "2. Copy any phone number to your clipboard\n"
             "3. WhatsApp Web will open automatically with your message\n"
-            "4. Customize the default message above as needed"
+            "4. Customize the default message above as needed\n"
+            "5. Enable 'Numbers only' to process only standalone numbers\n"
+            "   (ignores numbers mixed with other text)"
         )
         self.log_to_gui(instructions)
         
@@ -361,6 +422,8 @@ class ClipboardWhatsAppSender:
             self.config["auto_open_browser"] = self.auto_open_var.get()
         if hasattr(self, 'avoid_duplicates_var'):
             self.config["avoid_duplicates"] = self.avoid_duplicates_var.get()
+        if hasattr(self, 'numbers_only_var'):
+            self.config["numbers_only_mode"] = self.numbers_only_var.get()
         self.save_config()
         self.log_to_gui("⚙️ Settings saved")
     

@@ -18,43 +18,52 @@ def test_phone_detection():
     
     # Test cases with various phone number formats
     test_cases = [
-        # Format, Input, Expected Result
-        ("International with +", "+1234567890", True),
-        ("International formatted", "+1 234 567 8900", True),
-        ("US format with parentheses", "(234) 567-8900", True),
-        ("US format with dashes", "234-567-8900", True),
-        ("Simple 10 digits", "2345678900", True),
-        ("International UK", "+44 20 7946 0958", True),
-        ("International UAE", "+971 50 123 4567", True),
-        ("Invalid - too short", "12345", False),
-        ("Invalid - letters", "abc123def", False),
-        ("Invalid - special chars", "+++---123", False),
-        ("Valid with spaces", "123 456 7890", True),
-        ("Valid with dots", "123.456.7890", True),
+        # Format, Input, Expected Result, Numbers Only Result
+        ("International with +", "+1234567890", True, True),
+        ("International formatted", "+1 234 567 8900", True, True),
+        ("US format with parentheses", "(234) 567-8900", True, True),
+        ("US format with dashes", "234-567-8900", True, True),
+        ("Simple 10 digits", "2345678900", True, True),
+        ("International UK", "+44 20 7946 0958", True, True),
+        ("International UAE", "+971 50 123 4567", True, True),
+        ("Invalid - too short", "12345", False, False),
+        ("Invalid - letters", "abc123def", False, False),
+        ("Invalid - special chars", "+++---123", False, False),
+        ("Valid with spaces", "123 456 7890", True, True),
+        ("Valid with dots", "123.456.7890", True, True),
+        ("Number with text before", "Call me at +1234567890", True, False),
+        ("Number with text after", "+1234567890 is my number", True, False),
+        ("Number in sentence", "My number is +1234567890 please call", True, False),
+        ("Just number with newlines", "\n+1234567890\n", True, True),
+        ("Number with extra spaces", "  +1234567890  ", True, True),
     ]
     
     print("🧪 Testing Phone Number Detection")
-    print("=" * 40)
+    print("=" * 50)
     
     passed = 0
     failed = 0
     
-    for description, test_input, expected in test_cases:
-        result = app.is_valid_phone_number(test_input)
-        status = "✅ PASS" if result == expected else "❌ FAIL"
+    for description, test_input, expected_any, expected_only in test_cases:
+        result_any = app.is_valid_phone_number(test_input)
+        result_only = app.is_phone_number_only(test_input)
         
-        print(f"{status} {description}")
-        print(f"     Input: '{test_input}' -> {result} (expected {expected})")
+        status_any = "✅ PASS" if result_any == expected_any else "❌ FAIL"
+        status_only = "✅ PASS" if result_only == expected_only else "❌ FAIL"
         
-        if result == expected:
+        print(f"{description}")
+        print(f"  {status_any} Any detection: '{test_input}' -> {result_any} (expected {expected_any})")
+        print(f"  {status_only} Only detection: '{test_input}' -> {result_only} (expected {expected_only})")
+        
+        if result_any == expected_any and result_only == expected_only:
             passed += 1
         else:
             failed += 1
         
         # Test extraction if it should be valid
-        if expected and result:
+        if expected_any and result_any:
             extracted = app.extract_phone_number(test_input)
-            print(f"     Extracted: {extracted}")
+            print(f"  Extracted: {extracted}")
         
         print()
     
