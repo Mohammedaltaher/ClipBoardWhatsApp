@@ -4,5 +4,6 @@
   "check_interval": 1.0,
   "avoid_duplicates": true,
   "auto_open_browser": true,
-  "numbers_only_mode": true
+  "numbers_only_mode": true,
+  "use_whatsapp_app": true
 }

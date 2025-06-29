@@ -74,6 +74,10 @@ A lightweight Windows utility that monitors your clipboard for phone numbers and
 - **Numbers only (no extra text)**: Only detect standalone phone numbers
   - ✅ When enabled: Processes `+1234567890` but ignores `Call me at +1234567890`
   - ✅ When disabled: Processes both formats
+- **Use WhatsApp desktop app**: Open the installed WhatsApp desktop app instead of web browser
+  - ✅ When enabled: Uses `whatsapp://` URL scheme to open desktop app
+  - ✅ Fallback: If desktop app fails, automatically uses web version
+  - ✅ When disabled: Uses WhatsApp Web in browser
 - **Check interval**: How often to check clipboard (default: 1 second)
 
 ### Config File
@@ -86,7 +90,8 @@ Settings are automatically saved to `config.json`:
   "check_interval": 1.0,
   "avoid_duplicates": true,
   "auto_open_browser": true,
-  "numbers_only_mode": false
+  "numbers_only_mode": false,
+  "use_whatsapp_app": false
 }
 ```
 

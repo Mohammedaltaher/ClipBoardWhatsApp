@@ -67,7 +67,8 @@ class ClipboardWhatsAppSender:
             "check_interval": 1.0,
             "avoid_duplicates": True,
             "auto_open_browser": True,
-            "numbers_only_mode": False
+            "numbers_only_mode": False,
+            "use_whatsapp_app": False
         }
         
         if os.path.exists(self.config_file):
@@ -185,14 +186,72 @@ class ClipboardWhatsAppSender:
         return url
     
     def open_whatsapp(self, phone_number, message=None):
+        """Open WhatsApp (app or web) with the phone number"""
+        try:
+            if message is None:
+                message = self.config.get("default_message", "Hello!")
+            
+            # Check if we should use WhatsApp desktop app
+            use_app = self.config.get("use_whatsapp_app", False)
+            
+            if use_app:
+                # Try to open WhatsApp desktop app
+                success = self.open_whatsapp_app(phone_number, message)
+                if success:
+                    return True
+                else:
+                    # Fallback to web if app fails
+                    self.log_to_gui("⚠️ WhatsApp app not found, using web version...")
+            
+            # Open WhatsApp Web
+            return self.open_whatsapp_web(phone_number, message)
+                
+        except Exception as e:
+            self.logger.error(f"Error opening WhatsApp: {e}")
+            self.log_to_gui(f"❌ Error opening WhatsApp: {e}")
+            return False
+    
+    def open_whatsapp_app(self, phone_number, message):
+        """Try to open WhatsApp desktop app"""
+        import subprocess
+        import os
+        
+        try:
+            # Clean phone number (remove + for the URL)
+            clean_number = phone_number.replace('+', '')
+            
+            # Encode the message for URL
+            encoded_message = quote(message)
+            
+            # WhatsApp desktop app URL scheme
+            whatsapp_url = f"whatsapp://send?phone={clean_number}&text={encoded_message}"
+            
+            # Try to open with the URL scheme
+            if os.name == 'nt':  # Windows
+                subprocess.run(['start', whatsapp_url], shell=True, check=True)
+            else:  # macOS/Linux
+                subprocess.run(['open', whatsapp_url], check=True)
+            
+            self.logger.info(f"Opened WhatsApp app for {phone_number}")
+            self.log_to_gui(f"📱 Opened WhatsApp app for {phone_number}")
+            return True
+            
+        except subprocess.CalledProcessError:
+            self.logger.warning("WhatsApp desktop app not available")
+            return False
+        except Exception as e:
+            self.logger.warning(f"Failed to open WhatsApp app: {e}")
+            return False
+    
+    def open_whatsapp_web(self, phone_number, message):
         """Open WhatsApp Web with the phone number"""
         try:
             url = self.generate_whatsapp_url(phone_number, message)
             
             if self.config.get("auto_open_browser", True):
                 webbrowser.open(url)
-                self.logger.info(f"Opened WhatsApp for {phone_number}")
-                self.log_to_gui(f"✅ Opened WhatsApp for {phone_number}")
+                self.logger.info(f"Opened WhatsApp Web for {phone_number}")
+                self.log_to_gui(f"🌐 Opened WhatsApp Web for {phone_number}")
                 return True
             else:
                 self.logger.info(f"Generated URL for {phone_number}: {url}")
@@ -200,8 +259,7 @@ class ClipboardWhatsAppSender:
                 return url
                 
         except Exception as e:
-            self.logger.error(f"Error opening WhatsApp: {e}")
-            self.log_to_gui(f"❌ Error opening WhatsApp: {e}")
+            self.logger.error(f"Error opening WhatsApp Web: {e}")
             return False
     
     def monitor_clipboard(self):
@@ -248,12 +306,15 @@ class ClipboardWhatsAppSender:
                                     time.sleep(self.config.get("check_interval", 1.0))
                                     continue
                             
-                            # Add to processed numbers
+                            # Add to processed numbers immediately to prevent double processing
                             self.processed_numbers.add(phone_number)
                             
                             # Log the detection
                             self.logger.info(f"Detected phone number: {phone_number}")
                             self.log_to_gui(f"📞 Detected: {phone_number}")
+                            
+                            # Add a small delay to prevent rapid duplicate processing
+                            time.sleep(0.5)
                             
                             # Open WhatsApp
                             message = self.config.get("default_message", "Hello!")
@@ -382,6 +443,12 @@ class ClipboardWhatsAppSender:
                                          command=self.save_settings)
         numbers_only_cb.grid(row=1, column=0, sticky=tk.W, columnspan=2, pady=(5, 0))
         
+        self.use_whatsapp_app_var = tk.BooleanVar(value=self.config.get("use_whatsapp_app", False))
+        whatsapp_app_cb = ttk.Checkbutton(settings_frame, text="Use WhatsApp desktop app (instead of web)", 
+                                         variable=self.use_whatsapp_app_var,
+                                         command=self.save_settings)
+        whatsapp_app_cb.grid(row=2, column=0, sticky=tk.W, columnspan=2, pady=(5, 0))
+        
         # Log display
         log_frame = ttk.LabelFrame(main_frame, text="Activity Log", padding="10")
         log_frame.grid(row=5, column=0, columnspan=3, sticky="nsew", pady=(0, 10))
@@ -397,9 +464,10 @@ class ClipboardWhatsAppSender:
             "📋 Instructions:\n"
             "1. Click 'Start Monitoring' to begin watching clipboard\n"
             "2. Copy any phone number to your clipboard\n"
-            "3. WhatsApp Web will open automatically with your message\n"
+            "3. WhatsApp will open automatically with your message\n"
             "4. Customize the default message above as needed\n"
             "5. Enable 'Numbers only' to process only standalone numbers\n"
+            "6. Enable 'WhatsApp desktop app' to use installed app instead of web\n"
             "   (ignores numbers mixed with other text)"
         )
         self.log_to_gui(instructions)
@@ -424,6 +492,8 @@ class ClipboardWhatsAppSender:
             self.config["avoid_duplicates"] = self.avoid_duplicates_var.get()
         if hasattr(self, 'numbers_only_var'):
             self.config["numbers_only_mode"] = self.numbers_only_var.get()
+        if hasattr(self, 'use_whatsapp_app_var'):
+            self.config["use_whatsapp_app"] = self.use_whatsapp_app_var.get()
         self.save_config()
         self.log_to_gui("⚙️ Settings saved")
     
